@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能单据识别系统 - 识别历史</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1E40AF',
+            secondary: '#0EA5E9',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            neutral: {
+              50: '#F8FAFC',
+              100: '#F1F5F9',
+              200: '#E2E8F0',
+              700: '#334155',
+              800: '#1E293B',
+              900: '#0F172A',
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'card': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03)',
+            'card-hover': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          }
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .text-balance {
+        text-wrap: balance;
+      }
+      .scrollbar-thin {
+        scrollbar-width: thin;
+      }
+      .scrollbar-thin::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 2px;
+      }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+  </style>
+</head>
+<body class="bg-neutral-50 text-neutral-800 font-inter min-h-screen flex flex-col">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-gradient-to-br from-primary to-secondary text-white p-2.5 rounded-lg shadow">
+          <i class="fa fa-file-text-o text-xl"></i>
+        </div>
+        <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">智能单据识别系统</h1>
+      </div>
+
+      <div class="flex items-center space-x-6">
+        <div class="hidden md:flex items-center space-x-1 text-sm text-neutral-600">
+          <i class="fa fa-clock-o text-primary"></i>
+          <span id="current-time" class="font-medium">2023-06-15 14:30:25</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+    <!-- 侧边栏导航 -->
+    <aside class="w-16 md:w-64 bg-white border-r border-neutral-200 flex flex-col transition-all duration-300 z-40">
+      <nav class="flex-1 py-6 overflow-y-auto">
+        <ul>
+          <li class="mb-1 relative">
+            <a href="/#" class="flex items-center px-4 py-3.5 text-neutral-600 hover:text-primary hover:bg-blue-50 rounded-r-lg transition-all">
+              <i class="fa fa-file-image-o text-xl w-8 text-center"></i>
+              <span class="hidden md:inline ml-3 font-medium">单据识别</span>
+            </a>
+          </li>
+          <li class="mb-1 relative">
+            <a href="history.html" class="flex items-center px-4 py-3.5 text-primary bg-blue-50 rounded-r-lg transition-all">
+              <i class="fa fa-history text-xl w-8 text-center"></i>
+              <span class="hidden md:inline ml-3 font-medium">识别历史</span>
+              <span class="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r"></span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+    </aside>
+
+    <!-- 主内容区域 -->
+    <main class="flex-1 overflow-y-auto bg-neutral-50 p-4 md:p-6">
+      <div class="max-w-7xl mx-auto">
+        <!-- 页面标题 - 缩小字体 -->
+        <div class="mb-6">
+          <h2 class="text-[clamp(1.2rem,2vw,1.6rem)] font-bold text-neutral-800 mb-1">识别历史</h2>
+          <p class="text-neutral-600 text-sm mb-4">查看所有历史识别记录，支持筛选和搜索功能，点击记录可查看详情</p>
+        </div>
+
+        <!-- 识别记录区域 -->
+        <div class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+          <div class="flex flex-wrap items-center justify-between mb-4 gap-2">
+            <h3 class="text-base font-semibold flex items-center">
+              <i class="fa fa-history text-primary mr-2"></i>识别记录
+            </h3>
+            <div class="flex gap-3">
+              <select id="statusFilter" class="border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200">
+                <option value="all">全部状态</option>
+                <option value="pending">待处理</option>
+                <option value="processed">已处理</option>
+              </select>
+              <div class="relative">
+                <input type="text" placeholder="搜索关键词" class="border border-neutral-300 rounded-lg px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200">
+                <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"></i>
+              </div>
+              <button id="searchBtn" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm transition-all duration-300 flex items-center shadow hover:shadow-md">
+                <i class="fa fa-search mr-1"></i> 搜索
+              </button>
+            </div>
+          </div>
+
+          <!-- 识别记录表格 -->
+          <div class="overflow-auto scrollbar-thin rounded-xl border border-neutral-200">
+            <table class="min-w-full divide-y divide-neutral-200">
+              <thead class="bg-neutral-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">产品名称</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">型号</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">规格</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">生产厂家</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">生产日期</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">出厂日期</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">批号</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">状态</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-neutral-100" id="historyTableBody">
+                <!-- 示例数据 -->
+                <tr class="hover:bg-neutral-50 transition-colors duration-200">
+                  <td class="px-4 py-3 text-sm text-neutral-800">热轧钢板</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">Q235B</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2.0*1250*C</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">鞍钢集团</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-01</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-02</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023060101</td>
+                  <td class="px-4 py-3 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                      待处理
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm">
+                    <button class="text-primary hover:text-primary/80 transition-colors" onclick="viewDetail('热轧钢板', 'Q235B', '2.0*1250*C', '鞍钢集团', '2023-06-01', '2023-06-02', '2023060101', '待处理')">
+                      <i class="fa fa-eye mr-1"></i> 查看
+                    </button>
+                  </td>
+                </tr>
+                <tr class="hover:bg-neutral-50 transition-colors duration-200">
+                  <td class="px-4 py-3 text-sm text-neutral-800">冷轧硅钢</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">50W470</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">0.5*920*C</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">武钢集团</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-05</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-06</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023060502</td>
+                  <td class="px-4 py-3 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      已处理
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm">
+                    <button class="text-primary hover:text-primary/80 transition-colors" onclick="viewDetail('冷轧硅钢', '50W470', '0.5*920*C', '武钢集团', '2023-06-05', '2023-06-06', '2023060502', '已处理')">
+                      <i class="fa fa-eye mr-1"></i> 查看
+                    </button>
+                  </td>
+                </tr>
+                <tr class="hover:bg-neutral-50 transition-colors duration-200">
+                  <td class="px-4 py-3 text-sm text-neutral-800">镀锌板</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">DC01</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">1.0*1000*C</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">宝钢集团</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-10</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-11</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023061003</td>
+                  <td class="px-4 py-3 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                      待处理
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm">
+                    <button class="text-primary hover:text-primary/80 transition-colors" onclick="viewDetail('镀锌板', 'DC01', '1.0*1000*C', '宝钢集团', '2023-06-10', '2023-06-11', '2023061003', '待处理')">
+                      <i class="fa fa-eye mr-1"></i> 查看
+                    </button>
+                  </td>
+                </tr>
+                <tr class="hover:bg-neutral-50 transition-colors duration-200">
+                  <td class="px-4 py-3 text-sm text-neutral-800">不锈钢板</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">304</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">1.5*1219*C</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">太钢集团</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-12</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023-06-13</td>
+                  <td class="px-4 py-3 text-sm text-neutral-800">2023061201</td>
+                  <td class="px-4 py-3 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      已处理
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm">
+                    <button class="text-primary hover:text-primary/80 transition-colors" onclick="viewDetail('不锈钢板', '304', '1.5*1219*C', '太钢集团', '2023-06-12', '2023-06-13', '2023061201', '已处理')">
+                      <i class="fa fa-eye mr-1"></i> 查看
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 分页 -->
+          <div class="flex flex-wrap items-center justify-between mt-4 gap-3">
+            <div class="text-sm text-neutral-500">
+              显示第 1 到 4 条记录，共 8 条记录
+            </div>
+            <div class="flex gap-2">
+              <button id="prevPageBtn" class="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">上一页</button>
+              <div class="flex gap-1">
+                <button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white text-sm">1</button>
+                <button class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-sm transition-colors">2</button>
+              </div>
+              <button id="nextPageBtn" class="px-3 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm transition-all duration-300">下一页</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 详情模态框 -->
+  <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transform scale-95 transition-transform duration-300" id="modalContent">
+      <div class="p-6 border-b border-neutral-200 flex justify-between items-center">
+        <h3 class="text-xl font-semibold" id="modalTitle">记录详情</h3>
+        <button class="text-neutral-500 hover:text-neutral-700 transition-colors" onclick="closeModal()">
+          <i class="fa fa-times text-xl"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4" id="modalBody">
+        <!-- 详情内容将通过JavaScript动态填充 -->
+      </div>
+      <div class="p-6 border-t border-neutral-200 flex justify-end gap-3">
+        <button class="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-sm transition-all duration-300" onclick="closeModal()">
+          关闭
+        </button>
+        <button class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm transition-all duration-300 shadow hover:shadow-md">
+          <i class="fa fa-download mr-1"></i> 导出报告
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知提示组件 -->
+  <div id="notification" class="fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex items-center">
+    <i id="notificationIcon" class="mr-2 text-xl"></i>
+    <span id="notificationText"></span>
+  </div>
+
+  <script>
+    // 通知提示功能
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      const icon = document.getElementById('notificationIcon');
+      const text = document.getElementById('notificationText');
+
+      text.textContent = message;
+
+      if (type === 'success') {
+        notification.className = 'fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full bg-green-500 text-white transition-transform duration-300 z-50 flex items-center';
+        icon.className = 'fa fa-check-circle mr-2 text-xl';
+      } else if (type === 'error') {
+        notification.className = 'fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full bg-red-500 text-white transition-transform duration-300 z-50 flex items-center';
+        icon.className = 'fa fa-exclamation-circle mr-2 text-xl';
+      } else if (type === 'info') {
+        notification.className = 'fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full bg-blue-500 text-white transition-transform duration-300 z-50 flex items-center';
+        icon.className = 'fa fa-info-circle mr-2 text-xl';
+      }
+
+      setTimeout(() => notification.classList.remove('translate-x-full'), 100);
+      setTimeout(() => notification.classList.add('translate-x-full'), 3000);
+    }
+
+    // 更新当前时间
+    function updateCurrentTime() {
+      const now = new Date();
+      const options = {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      };
+      document.getElementById('current-time').textContent = now.toLocaleString('zh-CN', options);
+    }
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // 分页功能
+    document.getElementById('prevPageBtn').addEventListener('click', function() {
+      showNotification('已切换到上一页', 'info');
+    });
+
+    document.getElementById('nextPageBtn').addEventListener('click', function() {
+      showNotification('已切换到下一页', 'info');
+    });
+
+    // 搜索功能
+    document.getElementById('searchBtn').addEventListener('click', function() {
+      const filter = document.getElementById('statusFilter').value;
+      const statusText = filter === 'all' ? '全部状态' : filter === 'pending' ? '待处理' : '已处理';
+      showNotification(`已筛选 ${statusText} 记录`, 'info');
+    });
+
+    // 查看详情模态框
+    function viewDetail(name, model, spec, manufacturer, productionDate, shipmentDate, batchNumber, status) {
+      const modal = document.getElementById('detailModal');
+      const modalContent = document.getElementById('modalContent');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+
+      // 设置模态框标题
+      modalTitle.textContent = `${name} - 识别详情`;
+
+      // 设置模态框内容
+      const statusClass = status === '已处理' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+      const statusIcon = status === '已处理' ? 'fa-check-circle' : 'fa-clock-o';
+
+      modalBody.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">产品名称</h4>
+            <p class="text-base font-semibold">${name}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">型号</h4>
+            <p class="text-base font-semibold">${model}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">规格</h4>
+            <p class="text-base font-semibold">${spec}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">生产厂家</h4>
+            <p class="text-base font-semibold">${manufacturer}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">生产日期</h4>
+            <p class="text-base font-semibold">${productionDate}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">出厂日期</h4>
+            <p class="text-base font-semibold">${shipmentDate}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">批号</h4>
+            <p class="text-base font-semibold">${batchNumber}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-neutral-500 mb-1">状态</h4>
+            <p class="text-base font-semibold">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                <i class="fa ${statusIcon} mr-1"></i> ${status}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <h4 class="text-sm font-medium text-neutral-500 mb-2">识别信息</h4>
+          <div class="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-sm text-neutral-600">识别置信度</span>
+              <span class="text-sm font-medium">96.7%</span>
+            </div>
+            <div class="w-full bg-neutral-200 rounded-full h-2.5">
+              <div class="bg-primary h-2.5 rounded-full" style="width: 96.7%"></div>
+            </div>
+
+            <div class="mt-4 flex justify-between text-sm text-neutral-500">
+              <span>识别时间: 2023-06-15 14:30:25</span>
+              <span>处理用时: 2.3秒</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <h4 class="text-sm font-medium text-neutral-500 mb-2">原始图片</h4>
+          <div class="border border-neutral-200 rounded-lg p-2 bg-neutral-50">
+            <img src="https://picsum.photos/id/1025/600/400" alt="原始单据图片" class="w-full h-auto rounded-lg">
+          </div>
+        </div>
+      `;
+
+      // 显示模态框
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        modalContent.classList.remove('scale-95');
+        modalContent.classList.add('scale-100');
+      }, 10);
+
+      // 阻止背景滚动
+      document.body.style.overflow = 'hidden';
+    }
+
+    // 关闭模态框
+    function closeModal() {
+      const modal = document.getElementById('detailModal');
+      const modalContent = document.getElementById('modalContent');
+
+      modalContent.classList.remove('scale-100');
+      modalContent.classList.add('scale-95');
+
+      setTimeout(() => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        // 恢复背景滚动
+        document.body.style.overflow = '';
+      }, 300);
+    }
+  </script>
+</body>
+</html>
