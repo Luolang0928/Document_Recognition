@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="recognize_history" uuid="2eac0797-4540-41e8-9775-7d1c38ad41e0">
+    <data-source source="LOCAL" name="recognize_history" uuid="a4ac4de0-7aeb-4c9a-b17a-c86e59894395">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:D:\Dosktop\Document_ Recognition\recognize_history.db</jdbc-url>
+      <jdbc-url>jdbc:sqlite:D:\Dosktop\Document_Recognition\instance\recognize_history.db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
       <libraries>
         <library>
