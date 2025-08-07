@@ -1,15 +1,14 @@
 import os
 import json
 import requests
-import time
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from flask import Flask, render_template, request, jsonify
 from flask_caching import Cache
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import boto3  # 移动云EOS依赖（兼容S3协议）
 from botocore.exceptions import ClientError
+from flask import Flask, render_template, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 
 # 初始化应用
 app = Flask(__name__)
@@ -43,11 +42,17 @@ s3_client = boto3.client(
 # 数据库与缓存配置
 app.config['CACHE_TYPE'] = 'simple'
 cache = Cache(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'recognize_history.db')}"
+
+# 修正MySQL连接配置
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:Luo1Lang2@localhost:3306/dr_db?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'connect_args': {'check_same_thread': False}  # 解决SQLite多线程问题
+    'pool_size': 10,
+    'max_overflow': 20,
+    'pool_recycle': 1800,  # 30分钟回收连接，避免MySQL连接超时
+    'pool_pre_ping': True  # 检测连接有效性
 }
+
 db = SQLAlchemy(app)
 
 # 初始化目录
@@ -55,7 +60,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 CORS(app)
 
 
-# 数据库模型
+# 数据库模型 - 时间改为本地时间
 class RecognizeHistory(db.Model):
     __tablename__ = 'recognize_history'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -67,7 +72,19 @@ class RecognizeHistory(db.Model):
     shipment_date = db.Column(db.Text, default='')
     batch_number = db.Column(db.Text, default='-')
     remark = db.Column(db.Text, default='')
-    create_time = db.Column(db.DateTime, default=datetime.utcnow)
+    create_time = db.Column(db.DateTime, default=datetime.now, index=True)
+    project_name = db.Column(db.Text, default='-')  # 项目名称
+    quantity_weight = db.Column(db.Text, default='-')  # 数量/重量
+    status = db.Column(db.Text, default='未处理')
+
+
+# 项目名称数据模型
+class ProjectName(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(50), unique=True, nullable=False)
+    sort = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
 
 # 辅助函数：检查文件格式
@@ -76,9 +93,8 @@ def allowed_file(filename):
         filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 
-# EOS上传函数（带完整校验）
+# EOS上传函数，上传图片到移动云EOS并返回公开访问URL（带完整校验）
 def upload_to_mobilecloud_eos(image_path):
-    """上传图片到移动云EOS并返回公开访问URL"""
     try:
         # 1. 文件有效性校验
         if not os.path.exists(image_path):
@@ -90,8 +106,8 @@ def upload_to_mobilecloud_eos(image_path):
             raise ValueError(f"文件为空: {image_path}")
         app.logger.info(f"准备上传文件: {image_path}，大小: {file_size / 1024:.2f}KB")
 
-        # 2. 生成唯一文件名
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        # 2. 生成唯一文件名（使用本地时间戳）
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')  # 本地时间戳
         original_name = secure_filename(os.path.basename(image_path))
         filename = f"docs/{timestamp}_{original_name}"
         ext = original_name.rsplit('.', 1)[1].lower() if '.' in original_name else 'png'
@@ -111,7 +127,7 @@ def upload_to_mobilecloud_eos(image_path):
         endpoint_host = MOBILECLOUD_EOS_ENDPOINT.replace('https://', '')
         image_url = f"{MOBILECLOUD_EOS_ENDPOINT}/{MOBILECLOUD_EOS_BUCKET}/{filename}"
 
-        # 验证URL可用性
+        # 5. 验证URL可用性
         try:
             response = requests.head(image_url, timeout=10)
             response.raise_for_status()  # 触发HTTP错误
@@ -131,9 +147,8 @@ def upload_to_mobilecloud_eos(image_path):
         return None
 
 
-# 模型调用函数（增强日志和解析）
+# 上传图片到EOS并调用大模型识别信息，返回结果和错误信息
 def call_model_api(image_path):
-    """上传图片到EOS并调用大模型识别信息，返回结果和错误信息"""
     try:
         # 1. 上传图片到EOS
         image_url = upload_to_mobilecloud_eos(image_path)
@@ -253,6 +268,7 @@ def call_model_api(image_path):
             return valid_results, None if valid_results else "模型返回数据为空或无效"
         except json.JSONDecodeError as e:
             app.logger.error(f"JSON解析失败: {str(e)}, 原始响应: {full_response}")
+
             # 降级文本解析
             parsed_result = parse_model_output(full_response)
             if parsed_result:
@@ -268,9 +284,8 @@ def call_model_api(image_path):
         return None, f"识别过程异常: {str(e)}"
 
 
-# 文本响应降级解析函数
+# 文本响应降级解析函数，当模型返回非JSON文本时的降级解析逻辑
 def parse_model_output(model_response):
-    """当模型返回非JSON文本时的降级解析逻辑"""
     try:
         result = {
             'product_name': '-',
@@ -348,6 +363,8 @@ def recognize():
                 'productionDateResult': result.get('production_date', ''),
                 'shipmentDateResult': result.get('shipment_date', ''),
                 'batchNumberResult': result.get('batch_number', '-'),
+                'projectNameResult': '-',  # 默认空，等待用户补充
+                'quantityWeightResult': '-',  # 默认空，等待用户补充
                 'remarkResult': '解析成功' if all(v != '-' for v in result.values()) else '部分字段未识别'
             })
 
@@ -362,6 +379,7 @@ def recognize():
 
 
 # 路由：保存识别结果
+# 路由：保存识别结果（修改后）
 @app.route('/save', methods=['POST'])
 def save():
     try:
@@ -371,34 +389,38 @@ def save():
         # 兼容单个结果
         if isinstance(data, dict):
             data = [data]
-        if not isinstance(data, list):
-            return jsonify({'status': 'error', 'message': '数据格式应为数组'}), 400
+        if not isinstance(data, list) or len(data) == 0:
+            return jsonify({'status': 'error', 'message': '数据格式应为非空数组'}), 400
 
-        # 保存记录
-        saved_count = 0
+        # 批量创建记录对象并保持顺序
+        history_objects = []
         for item in data:
             if not isinstance(item, dict):
                 continue
-            try:
-                history = RecognizeHistory(
-                    name=item.get('nameResult', '-'),
-                    model=item.get('modelResult', '-'),
-                    spec=item.get('specResult', '-'),
-                    manufacturer=item.get('manufacturerResult', '-'),
-                    production_date=item.get('productionDateResult', ''),
-                    shipment_date=item.get('shipmentDateResult', ''),
-                    batch_number=item.get('batchNumberResult', '-'),
-                    remark=item.get('remarkResult', '')
-                )
-                db.session.add(history)
-                saved_count += 1
-            except Exception as e:
-                app.logger.warning(f"单条记录保存失败: {str(e)}")
+            history = RecognizeHistory(
+                project_name=item.get('projectNameResult', '-'),
+                name=item.get('nameResult', '-'),
+                model=item.get('modelResult', '-'),
+                spec=item.get('specResult', '-'),
+                batch_number=item.get('batchNumberResult', '-'),
+                quantity_weight=item.get('quantityWeightResult', '-'),
+                manufacturer=item.get('manufacturerResult', '-'),
+                production_date=item.get('productionDateResult', ''),
+                shipment_date=item.get('shipmentDateResult', ''),
+                remark=item.get('remarkResult', '')
+            )
+            history_objects.append(history)
 
-        db.session.commit()
+        # 逐条保存以保证顺序
+        if history_objects:
+            for history in history_objects:
+                db.session.add(history)
+            db.session.commit()
+            app.logger.info(f"保存成功，共{len(history_objects)}条记录")
+
         return jsonify({
             'status': 'success',
-            'message': f'成功保存{saved_count}/{len(data)}条记录'
+            'message': f'成功保存{len(history_objects)}/{len(data)}条记录'
         })
 
     except Exception as e:
@@ -419,8 +441,9 @@ def upload_file():
             return jsonify({'status': 'error', 'message': '未选择文件'}), 400
 
         if file and allowed_file(file.filename):
-            # 生成安全文件名
+            # 生成安全文件名（使用本地时间戳）
             ext = file.filename.rsplit('.', 1)[1].lower()
+            # 关键修改：使用本地时间生成文件名
             filename = secure_filename(f"doc_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}")
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
@@ -444,17 +467,176 @@ def upload_file():
 @app.route('/history')
 def history():
     try:
-        records = RecognizeHistory.query.order_by(RecognizeHistory.create_time.desc()).all()
-        return render_template('History.html', records=records)
+        # 获取分页参数（前端默认传page=1，per_page=20）
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        # 限制最大每页数量，防止恶意请求
+        per_page = min(per_page, 100)
+
+        # 分页查询（高效，只加载当前页数据）
+        pagination = RecognizeHistory.query.order_by(RecognizeHistory.create_time.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        records = pagination.items
+
+        # 构造分页元数据（供前端渲染分页控件）
+        pagination_meta = {
+            'total': pagination.total,  # 总记录数
+            'pages': pagination.pages,  # 总页数
+            'page': page,
+            'per_page': per_page,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+
+        # 如果是API请求，返回JSON（如果前端是模板渲染，可保留原逻辑但传递分页数据）
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({
+                'status': 'success',
+                'data': [
+                    {
+                        'id': r.id,
+                        'name': r.name,
+                        'model': r.model,
+                        'spec': r.spec,
+                        'manufacturer': r.manufacturer,
+                        'production_date': r.production_date,
+                        'shipment_date': r.shipment_date,
+                        'batch_number': r.batch_number,
+                        'project_name': r.project_name,  # 保留返回
+                        'quantity_weight': r.quantity_weight,  # 保留返回
+                        'create_time': r.create_time.strftime('%Y-%m-%d %H:%M:%S')
+                    } for r in records
+                ],
+                'pagination': pagination_meta
+            })
+
+        # 模板渲染（传递分页数据）
+        return render_template('History.html', records=records, pagination=pagination)
     except Exception as e:
         app.logger.error(f"历史记录异常: {str(e)}")
-        return render_template('error.html', message='获取历史失败'), 500
+        # 返回JSON格式的错误消息，状态码500
+        return jsonify({"message": "获取历史失败"}), 500
 
 
 # 路由：首页
 @app.route('/')
 def index():
     return render_template('Index.html')
+
+
+@app.route('/system-config')
+def system():
+    return render_template('SystemConfig.html')
+
+
+# 项目名称API接口
+@app.route('/api/project-names', methods=['GET'])
+def get_project_names():
+    """获取所有项目名称"""
+    try:
+        projects = ProjectName.query.order_by(ProjectName.sort).all()
+        data = [{"id": p.id, "name": p.name, "code": p.code, "sort": p.sort} for p in projects]
+        return jsonify({'status': 'success', 'data': data})
+    except Exception as e:
+        app.logger.error(f"获取项目名称异常: {str(e)}")
+        return jsonify({'status': 'error', 'message': '获取项目名称失败'}), 500
+
+
+@app.route('/api/project-names', methods=['POST'])
+def add_project_name():
+    """添加新项目名称"""
+    try:
+        data = request.json
+        if not data or 'name' not in data or 'code' not in data:
+            return jsonify({'status': 'error', 'message': '缺少名称或代码参数'}), 400
+
+        # 检查code是否已存在
+        if ProjectName.query.filter_by(code=data['code']).first():
+            return jsonify({'status': 'error', 'message': '项目代码已存在'}), 400
+
+        new_project = ProjectName(
+            name=data['name'],
+            code=data['code'],
+            sort=data.get('sort', 0)
+        )
+        db.session.add(new_project)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': '项目名称添加成功',
+            'data': {
+                "id": new_project.id,
+                "name": new_project.name,
+                "code": new_project.code,
+                "sort": new_project.sort
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"添加项目名称异常: {str(e)}")
+        return jsonify({'status': 'error', 'message': '添加项目名称失败'}), 500
+
+
+@app.route('/api/project-names/<int:project_id>', methods=['PUT'])
+def update_project_name(project_id):
+    """更新项目名称"""
+    try:
+        data = request.json
+        project = ProjectName.query.get(project_id)
+        if not project:
+            return jsonify({'status': 'error', 'message': '项目名称不存在'}), 404
+
+        # 检查code是否已存在（排除当前项目）
+        if 'code' in data and data['code'] != project.code:
+            if ProjectName.query.filter_by(code=data['code']).first():
+                return jsonify({'status': 'error', 'message': '项目代码已存在'}), 400
+
+        if 'name' in data:
+            project.name = data['name']
+        if 'code' in data:
+            project.code = data['code']
+        if 'sort' in data:
+            project.sort = data['sort']
+
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': '项目名称更新成功',
+            'data': {
+                "id": project.id,
+                "name": project.name,
+                "code": project.code,
+                "sort": project.sort
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"更新项目名称异常: {str(e)}")
+        return jsonify({'status': 'error', 'message': '更新项目名称失败'}), 500
+
+
+@app.route('/api/project-names/<int:project_id>', methods=['DELETE'])
+def delete_project_name(project_id):
+    """删除项目名称"""
+    try:
+        project = ProjectName.query.get(project_id)
+        if not project:
+            return jsonify({'status': 'error', 'message': '项目名称不存在'}), 404
+
+        db.session.delete(project)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': '项目名称删除成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"删除项目名称异常: {str(e)}")
+        return jsonify({'status': 'error', 'message': '删除项目名称失败'}), 500
 
 
 # 错误处理

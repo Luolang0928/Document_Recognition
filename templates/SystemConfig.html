@@ -1,10 +1,678 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI单据识别 - 项目名称管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1E40AF',
+                        secondary: '#0EA5E9',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        neutral: {
+                            50: '#F8FAFC',
+                            100: '#F1F5F9',
+                            200: '#E2E8F0',
+                            700: '#334155',
+                            800: '#1E293B',
+                            900: '#0F172A',
+                        }
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .form-input-focus {
+                @apply focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none;
+            }
+            .card-shadow {
+                @apply shadow-lg hover:shadow-xl transition-shadow duration-300;
+            }
+        }
+    </style>
 </head>
-<body>
+<body class="bg-neutral-50 text-neutral-800 font-inter min-h-screen flex flex-col">
+<!-- 顶部导航栏 -->
+<header class="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-br from-primary to-secondary text-white p-2.5 rounded-lg shadow">
+                <i class="fa fa-file-text-o text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                AI单据识别</h1>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div class="hidden md:flex items-center space-x-1 text-sm text-neutral-600">
+                <i class="fa fa-clock-o text-primary"></i>
+                <span id="current-time" class="font-medium">2023-06-15 14:30:25</span>
+            </div>
+        </div>
+    </div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+    <!-- 侧边栏导航 -->
+    <aside class="w-16 md:w-64 bg-white border-r border-neutral-200 flex flex-col transition-all duration-300 z-40">
+        <nav class="flex-1 py-6 overflow-y-auto">
+            <ul>
+                <li class="mb-1 relative">
+                    <a href="/"
+                       class="flex items-center px-4 py-3.5 text-neutral-600 hover:text-primary hover:bg-blue-50 rounded-r-lg transition-all">
+                        <i class="fa fa-file-image-o text-xl w-8 text-center"></i>
+                        <span class="hidden md:inline ml-3 font-medium">单据识别</span>
+                    </a>
+                </li>
+                <li class="mb-1 relative">
+                    <a href="history"
+                       class="flex items-center px-4 py-3.5 text-neutral-600 hover:text-primary hover:bg-blue-50 rounded-r-lg transition-all">
+                        <i class="fa fa-history text-xl w-8 text-center"></i>
+                        <span class="hidden md:inline ml-3 font-medium">识别历史</span>
+                    </a>
+                </li>
+                <li class="mb-1 relative">
+                    <a href="system-config"
+                       class="flex items-center px-4 py-3.5 text-primary bg-blue-50 rounded-r-lg transition-all">
+                        <i class="fa fa-cog text-xl w-8 text-center"></i>
+                        <span class="hidden md:inline ml-3 font-medium">项目名称管理</span>
+                        <span class="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r"></span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    <!-- 主内容区域 -->
+    <main class="flex-1 overflow-y-auto bg-neutral-50 p-4 md:p-6">
+        <div class="max-w-4xl mx-auto">
+            <!-- 登录验证区域 -->
+            <div id="loginSection" class="min-h-[60vh] flex items-center justify-center">
+                <div class="w-full max-w-md">
+                    <div class="bg-white rounded-2xl p-8 card-shadow">
+                        <div class="text-center mb-6">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+                                <i class="fa fa-lock text-2xl text-primary"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold text-neutral-800">管理员验证</h2>
+                            <p class="text-neutral-500 mt-1">请输入管理员信息以访问项目名称管理</p>
+                        </div>
+                        <form id="loginForm" class="space-y-4">
+                            <div>
+                                <label for="username" class="block text-sm font-medium text-neutral-700 mb-1">用户名 <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fa fa-user text-neutral-400"></i>
+                                    </div>
+                                    <input type="text" id="username" name="username" placeholder="请输入管理员用户名"
+                                           class="pl-10 block w-full rounded-lg border border-neutral-300 py-2.5 text-neutral-800 form-input-focus">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="password" class="block text-sm font-medium text-neutral-700 mb-1">密码 <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fa fa-key text-neutral-400"></i>
+                                    </div>
+                                    <input type="password" id="password" name="password" placeholder="请输入管理员密码"
+                                           class="pl-10 block w-full rounded-lg border border-neutral-300 py-2.5 text-neutral-800 form-input-focus">
+                                    <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600">
+                                        <i class="fa fa-eye-slash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="pt-2">
+                                <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white py-2.5 px-4 rounded-lg transition-colors duration-300 font-medium flex items-center justify-center">
+                                    <i class="fa fa-sign-in mr-2"></i> 验证身份
+                                </button>
+                            </div>
+                        </form>
+                        <div id="loginError" class="mt-4 text-center text-red-500 text-sm hidden">
+                            <i class="fa fa-exclamation-circle mr-1"></i>
+                            <span>用户名或密码错误，请重新输入</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 系统配置区域 (默认隐藏) -->
+            <div id="configSection" class="hidden">
+                <!-- 页面标题 -->
+                <div class="mb-6">
+                    <h2 class="text-[clamp(1.2rem,2vw,1.6rem)] font-bold text-neutral-800 mb-1">项目名称管理</h2>
+                    <p class="text-neutral-600 text-sm mb-4">管理系统中可用的项目名称列表，用于前端单据识别时下拉选择</p>
+                </div>
+                <!-- 项目名称管理区域 -->
+                <div class="bg-white rounded-xl p-5 shadow-sm mb-6">
+                    <div class="flex flex-wrap items-center justify-between mb-6 gap-2">
+                        <h3 class="text-base font-semibold flex items-center">
+                            <i class="fa fa-list-ul text-primary mr-2"></i>项目名称列表
+                        </h3>
+                        <button id="logoutBtn" class="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm transition-all duration-300 flex items-center">
+                            <i class="fa fa-sign-out mr-1"></i> 退出登录
+                        </button>
+                    </div>
 
+                    <!-- 操作按钮 -->
+                    <div class="flex flex-wrap items-center justify-between mb-4 gap-2">
+                        <h4 class="text-sm font-medium text-neutral-700">已配置项目名称</h4>
+                        <button id="addProjectBtn" class="px-3 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm transition-all duration-300 flex items-center">
+                            <i class="fa fa-plus mr-1"></i> 添加项目名称
+                        </button>
+                    </div>
+
+                    <!-- 项目名称表格 -->
+                    <div class="overflow-auto rounded-lg border border-neutral-200 mb-4">
+                        <table class="min-w-full divide-y divide-neutral-200">
+                            <thead class="bg-neutral-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider w-1/3">
+                                    项目名称
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider w-1/3">
+                                    项目代码
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider w-1/6">
+                                    排序
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider w-1/6">
+                                    操作
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-neutral-100" id="projectNamesTable">
+                                <!-- 项目名称数据将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 空状态提示 -->
+                    <div id="emptyProjectState" class="py-10 text-center hidden">
+                        <i class="fa fa-list text-3xl text-neutral-300 mb-3"></i>
+                        <p class="text-neutral-500">暂无项目名称，请点击"添加项目名称"按钮创建</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 添加/编辑项目名称模态框 -->
+<div id="projectModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-white rounded-2xl w-full max-w-md transform scale-95 transition-transform duration-300" id="modalContent">
+        <div class="p-6 border-b border-neutral-200 flex justify-between items-center">
+            <h3 class="text-xl font-semibold" id="modalTitle">添加项目名称</h3>
+            <button class="text-neutral-500 hover:text-neutral-700 transition-colors" onclick="closeProjectModal()">
+                <i class="fa fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="projectForm" class="p-6 space-y-4">
+            <input type="hidden" id="projectId">
+
+            <div>
+                <label for="projectName" class="block text-sm font-medium text-neutral-700 mb-1">项目名称 <span class="text-red-500">*</span></label>
+                <input type="text" id="projectName" name="projectName" required
+                       class="block w-full rounded-lg border border-neutral-300 py-2.5 px-3 text-neutral-800 form-input-focus">
+            </div>
+
+            <div>
+                <label for="projectCode" class="block text-sm font-medium text-neutral-700 mb-1">项目代码 <span class="text-red-500">*</span></label>
+                <input type="text" id="projectCode" name="projectCode" required
+                       class="block w-full rounded-lg border border-neutral-300 py-2.5 px-3 text-neutral-800 form-input-focus"
+                       placeholder="英文/数字简写，如：hospital_info">
+            </div>
+
+            <div>
+                <label for="projectSort" class="block text-sm font-medium text-neutral-700 mb-1">排序号</label>
+                <input type="number" id="projectSort" name="projectSort" min="0" value="0"
+                       class="block w-full rounded-lg border border-neutral-300 py-2.5 px-3 text-neutral-800 form-input-focus">
+            </div>
+
+            <div class="pt-2 flex gap-3">
+                <button type="button" onclick="closeProjectModal()"
+                        class="flex-1 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-sm transition-all duration-300">
+                    取消
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm transition-all duration-300">
+                    保存
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 确认删除模态框 -->
+<div id="confirmDeleteModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-white rounded-2xl w-full max-w-md transform scale-95 transition-transform duration-300" id="deleteModalContent">
+        <div class="p-6 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+                <i class="fa fa-trash text-2xl text-red-500"></i>
+            </div>
+            <h3 class="text-xl font-semibold mb-2">确认删除</h3>
+            <p class="text-neutral-600 mb-6">您确定要删除这个项目名称吗？此操作不可撤销。</p>
+            <input type="hidden" id="deleteProjectId">
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()"
+                        class="flex-1 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-sm transition-all duration-300">
+                    取消
+                </button>
+                <button onclick="confirmDelete()"
+                        class="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-all duration-300">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 通知提示组件 -->
+<div id="notification"
+     class="fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex items-center will-change-transform">
+    <i id="notificationIcon" class="mr-2 text-xl"></i>
+    <span id="notificationText"></span>
+</div>
+
+<script>
+    // 缓存DOM元素
+    const dom = {
+        // 登录相关
+        loginSection: document.getElementById('loginSection'),
+        configSection: document.getElementById('configSection'),
+        loginForm: document.getElementById('loginForm'),
+        username: document.getElementById('username'),
+        password: document.getElementById('password'),
+        togglePassword: document.getElementById('togglePassword'),
+        loginError: document.getElementById('loginError'),
+        logoutBtn: document.getElementById('logoutBtn'),
+        // 项目管理相关
+        projectNamesTable: document.getElementById('projectNamesTable'),
+        emptyProjectState: document.getElementById('emptyProjectState'),
+        addProjectBtn: document.getElementById('addProjectBtn'),
+        // 模态框相关
+        projectModal: document.getElementById('projectModal'),
+        modalContent: document.getElementById('modalContent'),
+        modalTitle: document.getElementById('modalTitle'),
+        projectForm: document.getElementById('projectForm'),
+        projectId: document.getElementById('projectId'),
+        projectName: document.getElementById('projectName'),
+        projectCode: document.getElementById('projectCode'),
+        projectSort: document.getElementById('projectSort'),
+        // 删除确认框
+        confirmDeleteModal: document.getElementById('confirmDeleteModal'),
+        deleteModalContent: document.getElementById('deleteModalContent'),
+        deleteProjectId: document.getElementById('deleteProjectId'),
+        // 通知组件
+        notification: document.getElementById('notification'),
+        notificationIcon: document.getElementById('notificationIcon'),
+        notificationText: document.getElementById('notificationText'),
+        currentTime: document.getElementById('current-time')
+    };
+
+    // 管理员凭证（实际应用中应通过后端验证）
+    const ADMIN_CREDENTIALS = {
+        'admin': 'admin123'  // 示例账号密码，生产环境需修改并通过API验证
+    };
+
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', function() {
+        // 检查登录状态
+        if (localStorage.getItem('adminLoggedIn') === 'true') {
+            showConfigSection();
+            loadProjectNames();
+        }
+        // 更新当前时间
+        updateCurrentTime();
+        setInterval(updateCurrentTime, 1000);
+        // 绑定事件处理程序
+        bindEvents();
+    });
+
+    // 绑定事件处理程序
+    function bindEvents() {
+        // 登录表单提交
+        dom.loginForm.addEventListener('submit', handleLogin);
+        // 切换密码可见性
+        dom.togglePassword.addEventListener('click', togglePasswordVisibility);
+        // 添加项目按钮
+        dom.addProjectBtn.addEventListener('click', showAddProjectModal);
+        // 项目表单提交
+        dom.projectForm.addEventListener('submit', handleProjectFormSubmit);
+        // 退出登录
+        dom.logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    // 处理登录
+    function handleLogin(e) {
+        e.preventDefault();
+        const username = dom.username.value.trim();
+        const password = dom.password.value.trim();
+
+        // 验证输入
+        if (!username || !password) {
+            dom.loginError.textContent = '请输入用户名和密码';
+            dom.loginError.classList.remove('hidden');
+            return;
+        }
+
+        // 验证逻辑（实际应用中应通过API验证）
+        if (ADMIN_CREDENTIALS[username] && ADMIN_CREDENTIALS[username] === password) {
+            // 登录成功
+            localStorage.setItem('adminLoggedIn', 'true');
+            localStorage.setItem('currentAdmin', username);
+            showConfigSection();
+            loadProjectNames();
+            dom.loginError.classList.add('hidden');
+            showNotification(`登录成功，欢迎回来，${username}`, 'success');
+        } else {
+            // 登录失败
+            dom.loginError.textContent = '用户名或密码错误，请重新输入';
+            dom.loginError.classList.remove('hidden');
+        }
+    }
+
+    // 切换密码可见性
+    function togglePasswordVisibility() {
+        const type = dom.password.getAttribute('type') === 'password' ? 'text' : 'password';
+        dom.password.setAttribute('type', type);
+        // 切换图标
+        const icon = dom.togglePassword.querySelector('i');
+        if (type === 'password') {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
+    // 显示配置区域
+    function showConfigSection() {
+        dom.loginSection.classList.add('hidden');
+        dom.configSection.classList.remove('hidden');
+    }
+
+    // 加载项目名称列表
+    function loadProjectNames() {
+        // 显示加载状态
+        dom.projectNamesTable.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-4 py-8 text-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
+                    <p class="text-neutral-500 mt-2">加载中...</p>
+                </td>
+            </tr>
+        `;
+        dom.emptyProjectState.classList.add('hidden');
+
+        fetch('/api/project-names')
+            .then(response => {
+                if (!response.ok) throw new Error('网络请求失败');
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    renderProjectNamesTable(data.data);
+                } else {
+                    showNotification(data.message || '加载项目名称失败', 'error');
+                    dom.projectNamesTable.innerHTML = '';
+                    dom.emptyProjectState.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('加载项目名称错误:', error);
+                showNotification('加载项目名称失败，请刷新页面重试', 'error');
+                dom.projectNamesTable.innerHTML = '';
+                dom.emptyProjectState.classList.remove('hidden');
+            });
+    }
+
+    // 渲染项目名称表格
+    function renderProjectNamesTable(projects) {
+        if (projects.length === 0) {
+            dom.projectNamesTable.innerHTML = '';
+            dom.emptyProjectState.classList.remove('hidden');
+            return;
+        }
+
+        dom.emptyProjectState.classList.add('hidden');
+        // 按排序号排序
+        projects.sort((a, b) => a.sort - b.sort);
+
+        let html = '';
+        projects.forEach(item => {
+            html += `
+            <tr class="hover:bg-neutral-50 transition-colors">
+                <td class="px-4 py-3 text-sm">${item.name}</td>
+                <td class="px-4 py-3 text-sm font-mono">${item.code}</td>
+                <td class="px-4 py-3 text-sm">${item.sort}</td>
+                <td class="px-4 py-3 text-sm">
+                    <button class="text-primary hover:text-primary/80 mr-3 transition-colors"
+                            onclick="showEditProjectModal(${item.id})">
+                        <i class="fa fa-pencil"></i> 编辑
+                    </button>
+                    <button class="text-red-500 hover:text-red-600 transition-colors"
+                            onclick="showDeleteConfirm(${item.id})">
+                        <i class="fa fa-trash"></i> 删除
+                    </button>
+                </td>
+            </tr>
+            `;
+        });
+
+        dom.projectNamesTable.innerHTML = html;
+    }
+
+    // 显示添加项目模态框
+    function showAddProjectModal() {
+        dom.modalTitle.textContent = '添加项目名称';
+        dom.projectForm.reset();
+        dom.projectId.value = '';
+        dom.projectSort.value = 0;
+        showProjectModal();
+    }
+
+    // 显示编辑项目模态框
+    window.showEditProjectModal = function(id) {
+        fetch(`/api/project-names/${id}`)
+            .then(response => {
+                if (!response.ok) throw new Error('获取项目信息失败');
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success' && data.data) {
+                    const item = data.data;
+                    dom.projectId.value = item.id;
+                    dom.projectName.value = item.name;
+                    dom.projectCode.value = item.code;
+                    dom.projectSort.value = item.sort || 0;
+                    dom.modalTitle.textContent = '编辑项目名称';
+                    showProjectModal();
+                } else {
+                    showNotification('获取项目信息失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('获取项目信息错误:', error);
+                showNotification('获取项目信息失败', 'error');
+            });
+    }
+
+    // 显示项目模态框
+    function showProjectModal() {
+        dom.projectModal.classList.remove('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            dom.modalContent.classList.remove('scale-95');
+            dom.modalContent.classList.add('scale-100');
+        }, 50);
+        document.body.style.overflow = 'hidden';
+        dom.projectName.focus();
+    }
+
+    // 关闭项目模态框
+    window.closeProjectModal = function() {
+        dom.modalContent.classList.remove('scale-100');
+        dom.modalContent.classList.add('scale-95');
+        setTimeout(() => {
+            dom.projectModal.classList.add('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = '';
+        }, 300);
+    }
+
+    // 处理项目表单提交
+    function handleProjectFormSubmit(e) {
+        e.preventDefault();
+
+        const id = dom.projectId.value;
+        const name = dom.projectName.value.trim();
+        const code = dom.projectCode.value.trim();
+        const sort = parseInt(dom.projectSort.value) || 0;
+
+        if (!name) {
+            showNotification('请填写项目名称', 'error');
+            dom.projectName.focus();
+            return;
+        }
+
+        if (!code) {
+            showNotification('请填写项目代码', 'error');
+            dom.projectCode.focus();
+            return;
+        }
+
+        const projectData = { name, code, sort };
+        let url = '/api/project-names';
+        let method = 'POST';
+        let successMsg = '项目名称添加成功';
+
+        // 如果有ID，则是更新操作
+        if (id) {
+            url = `/api/project-names/${id}`;
+            method = 'PUT';
+            successMsg = '项目名称更新成功';
+        }
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(projectData)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('操作失败');
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                showNotification(data.message || successMsg, 'success');
+                closeProjectModal();
+                loadProjectNames(); // 重新加载列表
+            } else {
+                showNotification(data.message || '操作失败', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('操作项目名称错误:', error);
+            showNotification('操作失败，请重试', 'error');
+        });
+    }
+
+    // 显示删除确认
+    window.showDeleteConfirm = function(id) {
+        dom.deleteProjectId.value = id;
+        dom.confirmDeleteModal.classList.remove('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            dom.deleteModalContent.classList.remove('scale-95');
+            dom.deleteModalContent.classList.add('scale-100');
+        }, 50);
+        document.body.style.overflow = 'hidden';
+    }
+
+    // 关闭删除确认
+    window.closeDeleteModal = function() {
+        dom.deleteModalContent.classList.remove('scale-100');
+        dom.deleteModalContent.classList.add('scale-95');
+        setTimeout(() => {
+            dom.confirmDeleteModal.classList.add('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = '';
+        }, 300);
+    }
+
+    // 确认删除
+    window.confirmDelete = function() {
+        const id = parseInt(dom.deleteProjectId.value);
+
+        fetch(`/api/project-names/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('删除失败');
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                showNotification('项目名称已删除', 'success');
+                closeDeleteModal();
+                loadProjectNames(); // 重新加载列表
+            } else {
+                showNotification(data.message || '删除失败', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('删除项目名称错误:', error);
+            showNotification('删除失败，请重试', 'error');
+        });
+    }
+
+    // 处理退出登录
+    function handleLogout() {
+        localStorage.removeItem('adminLoggedIn');
+        localStorage.removeItem('currentAdmin');
+        dom.configSection.classList.add('hidden');
+        dom.loginSection.classList.remove('hidden');
+        dom.username.value = '';
+        dom.password.value = '';
+        showNotification('已成功退出登录', 'info');
+    }
+
+    // 显示通知提示
+    function showNotification(message, type = 'success') {
+        dom.notificationText.textContent = message;
+        if (type === 'success') {
+            dom.notification.className = 'fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full bg-green-500 text-white transition-transform duration-300 z-50 flex items-center will-change-transform';
+            dom.notificationIcon.className = 'fa fa-check-circle mr-2 text-xl';
+        } else if (type === 'error') {
+            dom.notification.className = 'fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full bg-red-500 text-white transition-transform duration-300 z-50 flex items-center will-change-transform';
+            dom.notificationIcon.className = 'fa fa-exclamation-circle mr-2 text-xl';
+        } else if (type === 'info') {
+            dom.notification.className = 'fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full bg-blue-500 text-white transition-transform duration-300 z-50 flex items-center will-change-transform';
+            dom.notificationIcon.className = 'fa fa-info-circle mr-2 text-xl';
+        }
+        setTimeout(() => dom.notification.classList.remove('translate-x-full'), 100);
+        setTimeout(() => dom.notification.classList.add('translate-x-full'), 3000);
+    }
+
+    // 更新当前时间
+    function updateCurrentTime() {
+        const now = new Date();
+        const options = {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+        };
+        dom.currentTime.textContent = now.toLocaleString('zh-CN', options);
+    }
+</script>
 </body>
 </html>
